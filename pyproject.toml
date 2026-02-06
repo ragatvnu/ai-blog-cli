@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-blog-cli"
+version = "0.1.0"
+description = "Generate SEO-friendly Markdown blog posts from a topic."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "typer>=0.12.0",
+  "rich>=13.7.0",
+  "openai>=1.0.0",
+  "python-slugify>=8.0.0",
+  "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0.0",
+]
+
+[project.scripts]
+ai-blog = "ai_blog.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ai_blog*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
