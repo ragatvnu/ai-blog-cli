@@ -1,3 +1,10 @@
+## 💰 Pro Version
+
+Get the paid version (includes full source, mock & dry-run modes):
+
+👉 https://ragatvnu.gumroad.com/l/ai-blog-cli
+
+
 # AI Blog CLI
 
 Generate SEO-friendly Markdown blog posts from a keyword/topic with a predictable structure and clean output files.
