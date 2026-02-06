@@ -28,7 +28,7 @@ def _section_bullet_counts(body: str) -> dict[str, int]:
         heading = lines[start][3:].strip()
         count = 0
         for line in lines[start + 1 : end]:
-            if re.match(r"^\\s*-\\s+", line):
+            if re.match(r"^\s*-\s+", line):
                 count += 1
         counts[heading] = count
     return counts
@@ -65,7 +65,7 @@ def test_outline_mock_output(tmp_path):
     meta = json.loads(fm["meta_description"])
     assert len(meta) <= 155
 
-    assert re.search(r"^#\\s+", body, re.MULTILINE)
+    assert re.search(r"^#\s+", body, re.MULTILINE)
     assert count_h2(body) >= 8
 
     counts = _section_bullet_counts(body)

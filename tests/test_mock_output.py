@@ -42,6 +42,6 @@ def test_mock_output_structure(tmp_path):
     meta = json.loads(fm["meta_description"])
     assert len(meta) <= 155
 
-    assert re.search(r"^#\\s+", body, re.MULTILINE)
+    assert re.search(r"^#\s+", body, re.MULTILINE)
     assert count_h2(body) >= 5
     assert count_faqs(body) >= 5

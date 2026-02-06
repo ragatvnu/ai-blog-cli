@@ -420,6 +420,93 @@ def _build_dry_run_outline(
     return ParsedOutput(title=title, meta_description=meta, body=body)
 
 
+def _expand_mock_section(
+    section_heading: str,
+    section_body_lines: list[str],
+    topic: str | None,
+    tone: str,
+    audience: str,
+    country: str,
+) -> str:
+    seed_base = "|".join(
+        [
+            section_heading,
+            topic or "",
+            tone,
+            audience,
+            country,
+            "\n".join(section_body_lines),
+        ]
+    )
+    seed = int(hashlib.sha256(seed_base.encode("utf-8")).hexdigest()[:16], 16)
+    rnd = random.Random(seed)
+
+    heading = section_heading.strip()
+    topic_label = topic or heading
+
+    intro_templates = [
+        "For {audience} in {country}, {topic} decisions around {heading} should be practical and easy to compare.",
+        "This section expands {heading} with clear, real-world criteria for {audience} in {country}.",
+        "{heading} matters because it affects everyday value and usability for {audience} in {country}.",
+    ]
+    detail_templates = [
+        "Keep your short list small and compare like-for-like features before deciding.",
+        "Focus on comfort, reliability, and after-sales support rather than just specs.",
+        "Use reviews that mention long-term use to validate the basics.",
+    ]
+    bullet_templates = [
+        "Set a clear budget and prioritize must-have features.",
+        "Compare 2-3 options with consistent reviews.",
+        "Check warranty terms and service coverage in {country}.",
+        "Look for balanced performance that fits daily use.",
+        "Avoid paying extra for features you won't use.",
+    ]
+
+    source_bullets = [
+        line.strip()[2:].strip()
+        for line in section_body_lines
+        if line.strip().startswith("- ")
+    ]
+
+    bullets = []
+    if source_bullets:
+        options = source_bullets[:]
+        rnd.shuffle(options)
+        count = min(len(options), 5)
+        for item in options[:count]:
+            bullets.append(item)
+    else:
+        options = bullet_templates[:]
+        rnd.shuffle(options)
+        count = 3 + rnd.randint(0, 2)
+        for i in range(count):
+            bullets.append(
+                options[i].format(
+                    topic=topic_label, heading=heading, audience=audience, country=country
+                )
+            )
+
+    lines = [
+        f"## {heading}",
+        "",
+        rnd.choice(intro_templates).format(
+            audience=audience, country=country, topic=topic_label, heading=heading
+        ),
+        "",
+        rnd.choice(detail_templates),
+        "",
+    ]
+    for bullet in bullets:
+        lines.append(f"- {bullet}")
+    lines.extend(
+        [
+            "",
+            "Choose the option that best fits your daily use and budget.",
+        ]
+    )
+    return "\n".join(lines).strip()
+
+
 def _repair_body(
     client,
     auth_error_cls,
@@ -597,6 +684,49 @@ def generate_outline(
         slug=slug,
         path=str(out_path),
     )
+
+
+def expand_section(
+    section_heading: str,
+    section_body_lines: list[str],
+    topic: str | None,
+    tone: str,
+    audience: str,
+    country: str,
+    model: str,
+    provider: str = "openai",
+    dry_run: bool = False,
+    client: object | None = None,
+) -> str:
+    if provider not in {"openai", "mock"}:
+        raise ValueError(f"Unknown provider: {provider}")
+
+    if dry_run or provider == "mock":
+        return _expand_mock_section(
+            section_heading=section_heading,
+            section_body_lines=section_body_lines,
+            topic=topic,
+            tone=tone,
+            audience=audience,
+            country=country,
+        )
+
+    if client is None:
+        client = _openai_client()
+    auth_error_cls, rate_error_cls = _openai_error_classes()
+    user = prompts.expand_user_prompt(
+        section_heading=section_heading,
+        section_body_lines=section_body_lines,
+        topic=topic,
+        tone=tone,
+        audience=audience,
+        country=country,
+    )
+    raw = _call_openai(client, auth_error_cls, rate_error_cls, model, prompts.SYSTEM_MESSAGE, user)
+    text = raw.strip()
+    if not text.startswith("## "):
+        text = f"## {section_heading}\n\n{text}"
+    return text
 
 
 def resolve_model(cli_model: str | None) -> str:

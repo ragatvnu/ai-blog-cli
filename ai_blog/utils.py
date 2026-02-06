@@ -1,10 +1,14 @@
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from slugify import slugify as _slugify
+try:
+    from slugify import slugify as _slugify
+except Exception:
+    _slugify = None
 
 
 @dataclass
@@ -15,7 +19,13 @@ class ParsedOutput:
 
 
 def slugify_topic(topic: str) -> str:
-    return _slugify(topic, lowercase=True, separator="-")
+    if _slugify:
+        return _slugify(topic, lowercase=True, separator="-")
+    value = unicodedata.normalize("NFKD", topic).encode("ascii", "ignore").decode()
+    value = value.lower()
+    value = re.sub(r"[^a-z0-9]+", "-", value)
+    value = re.sub(r"-{2,}", "-", value).strip("-")
+    return value
 
 
 def ensure_out_dir(out_dir: str | Path) -> Path:
@@ -152,7 +162,7 @@ def validate_outline(body: str) -> list[str]:
     def bullet_count(start: int, end: int) -> int:
         count = 0
         for line in lines[start:end]:
-            if re.match(r"^\\s*-\\s+", line):
+            if re.match(r"^\s*-\s+", line):
                 count += 1
         return count
 
@@ -171,5 +181,5 @@ def validate_outline(body: str) -> list[str]:
 
 
 def write_markdown(path: Path, frontmatter: str, body: str) -> None:
-    content = f"{frontmatter}\n\n{body.strip()}\n"
+    content = f"{frontmatter}\n{body.strip()}\n"
     path.write_text(content, encoding="utf-8")

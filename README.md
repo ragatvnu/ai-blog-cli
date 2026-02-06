@@ -62,6 +62,16 @@ Outline mode (no API key):
 ```bash
 python -m ai_blog outline --topic "best earbuds under 5000 in india" --out ./out --provider mock
 python -m ai_blog outline --topic "best earbuds under 5000 in india" --out ./out --dry-run
+ls -lah ./out
+# -> best-earbuds-under-5000-in-india-outline.md
+```
+
+Expand a single section:
+
+```bash
+python -m ai_blog expand --outline ./out/best-earbuds-under-5000-in-india-outline.md --section 1 --out ./out --provider mock
+ls -lah ./out
+# -> 01-<section-heading>.md
 ```
 
 Dry run (no API calls, uses bundled sample output):

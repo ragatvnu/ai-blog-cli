@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-blog-cli"
-version = "0.1.0"
+version = "0.3.0"
 description = "Generate SEO-friendly Markdown blog posts from a topic."
 readme = "README.md"
 requires-python = ">=3.9"

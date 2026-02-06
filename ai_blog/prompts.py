@@ -47,8 +47,9 @@ Country: {country}
 
 Output a Markdown outline with:
 - H1 title
-- 5-8 H2 headings
-- A short list of FAQ questions (5-8) under an H2 "FAQs"
+- 8-10 H2 headings
+- 3-6 bullet points under each H2 (subtopics/questions)
+- A final H2 "FAQs" with 5-8 bullet questions
 
 Return EXACTLY in this format:
 TITLE: <title>
@@ -82,4 +83,34 @@ Return ONLY the corrected Markdown body (no extra labels).
 
 BODY TO FIX:
 {body}
+""".strip()
+
+
+def expand_user_prompt(
+    section_heading,
+    section_body_lines,
+    topic,
+    tone,
+    audience,
+    country,
+):
+    notes = "\n".join(section_body_lines).strip() or "No additional notes."
+    topic_line = f"Topic: {topic}" if topic else "Topic: (not provided)"
+    return f"""
+Expand the section below into a clear, SEO-friendly Markdown section.
+
+{topic_line}
+Tone: {tone}
+Audience: {audience}
+Country: {country}
+
+Section heading: {section_heading}
+Section notes:
+{notes}
+
+Requirements:
+- Output Markdown only.
+- Start with \"## {section_heading}\" on the first line.
+- 2-4 short paragraphs plus an optional bullet list.
+- Keep it concise and practical.
 """.strip()

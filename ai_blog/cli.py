@@ -6,8 +6,10 @@ import typer
 from dotenv import load_dotenv
 from rich.console import Console
 
-from .generator import generate_article, generate_outline, resolve_model
+from .generator import generate_article, generate_outline, resolve_model, expand_section
 from .errors import OpenAIAuthError, OpenAIRateLimitError, MockDryRunRegressionError
+from .outline_parse import OutlineParseError, get_section, parse_outline_file
+from .utils import slugify_topic
 
 app = typer.Typer(help="Generate SEO-friendly Markdown blog posts.")
 console = Console()
@@ -196,3 +198,76 @@ def outline(
             "- Wait a few minutes and retry if you're rate-limited"
         )
         raise typer.Exit(code=3)
+
+
+@app.command()
+def expand(
+    outline: Path = typer.Option(..., help="Path to outline markdown file."),
+    section: int = typer.Option(..., help="1-based index of the H2 section to expand."),
+    out: Path = typer.Option("./out", help="Output directory or file path."),
+    model: str = typer.Option(None, help="OpenAI model (overrides env)."),
+    provider: Provider = typer.Option(
+        Provider.openai, help="Content provider: openai or mock."
+    ),
+    dry_run: bool = typer.Option(False, help="Print to stdout and skip file output."),
+    tone: str = typer.Option("friendly", help="Tone of voice."),
+    audience: str = typer.Option("beginners", help="Target audience."),
+    country: str = typer.Option("India", help="Target country/context."),
+):
+    if not dry_run and provider == Provider.openai:
+        _require_api_key()
+    selected_model = resolve_model(model)
+
+    try:
+        doc = parse_outline_file(outline)
+        section_obj = get_section(doc, section)
+    except OutlineParseError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1)
+
+    topic = None
+    if "topic" in doc.frontmatter:
+        topic = str(doc.frontmatter["topic"])
+    elif doc.title:
+        topic = doc.title
+
+    try:
+        content = expand_section(
+            section_heading=section_obj.heading,
+            section_body_lines=section_obj.body_lines,
+            topic=topic,
+            tone=tone,
+            audience=audience,
+            country=country,
+            model=selected_model,
+            provider=provider.value,
+            dry_run=dry_run,
+        )
+    except OpenAIAuthError:
+        console.print(
+            "[red]Authentication failed. Please check OPENAI_API_KEY and try again.[/red]"
+        )
+        raise typer.Exit(code=2)
+    except OpenAIRateLimitError:
+        console.print(
+            "[red]Rate limit or quota exceeded. To fix:[/red]\n"
+            "- Check your OpenAI billing status and add a payment method\n"
+            "- Review usage and limits for your account\n"
+            "- Wait a few minutes and retry if you're rate-limited"
+        )
+        raise typer.Exit(code=3)
+
+    if dry_run:
+        print(content)
+        return
+
+    out_path = out
+    if out_path.suffix != ".md" and not (out_path.exists() and out_path.is_file()):
+        out_path.mkdir(parents=True, exist_ok=True)
+        slug = slugify_topic(section_obj.heading)
+        out_path = out_path / f"{section:02d}-{slug}.md"
+    else:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    out_path.write_text(content.rstrip() + "\n", encoding="utf-8")
+    console.print(f"[green]Saved:[/green] {out_path}")
