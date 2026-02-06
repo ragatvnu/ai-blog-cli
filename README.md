@@ -2,7 +2,7 @@
 
 Get the paid version (includes full source, mock & dry-run modes):
 
-👉 https://ragatvnu.gumroad.com/l/ai-blog-cli
+👉 Buy here: https://ragatvnu.gumroad.com/l/ai-blog-cli
 
 
 # AI Blog CLI
