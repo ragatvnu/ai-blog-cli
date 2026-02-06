@@ -35,7 +35,9 @@ def build_frontmatter(
     topic: str,
     word_count_target: int,
     date_str: str | None = None,
-    dry_run: bool = False,
+    kind: str | None = None,
+    provider: str | None = None,
+    dry_run: bool | None = None,
 ) -> str:
     if date_str is None:
         date_str = date.today().isoformat()
@@ -48,8 +50,12 @@ def build_frontmatter(
         f"topic: {_yaml_quote(topic)}",
         f"word_count_target: {word_count_target}",
     ]
-    if dry_run:
-        lines.append("dry_run: true")
+    if kind is not None:
+        lines.append(f"kind: {_yaml_quote(kind)}")
+    if provider is not None:
+        lines.append(f"provider: {_yaml_quote(provider)}")
+    if dry_run is not None:
+        lines.append(f"dry_run: {'true' if dry_run else 'false'}")
     lines.append("---")
     return "\n".join(lines)
 
@@ -130,6 +136,37 @@ def validate_body(body: str) -> list[str]:
         issues.append("Needs at least 5 H2 headings")
     if count_faqs(body) < 5:
         issues.append("FAQs must include at least 5 Q/A pairs")
+    return issues
+
+
+def validate_outline(body: str) -> list[str]:
+    issues: list[str] = []
+    if count_h1(body) < 1:
+        issues.append("Missing H1 title")
+
+    lines = body.splitlines()
+    h2_indices = [i for i, line in enumerate(lines) if line.startswith("## ")]
+    if len(h2_indices) < 8:
+        issues.append("Needs at least 8 H2 headings")
+
+    def bullet_count(start: int, end: int) -> int:
+        count = 0
+        for line in lines[start:end]:
+            if re.match(r"^\\s*-\\s+", line):
+                count += 1
+        return count
+
+    for idx, start in enumerate(h2_indices):
+        end = h2_indices[idx + 1] if idx + 1 < len(h2_indices) else len(lines)
+        heading = lines[start][3:].strip().lower()
+        count = bullet_count(start + 1, end)
+        if heading == "faqs":
+            if count < 5 or count > 8:
+                issues.append("FAQs must include 5-8 bullet questions")
+        else:
+            if count < 3 or count > 6:
+                issues.append("Each H2 section needs 3-6 bullet points")
+
     return issues
 
 

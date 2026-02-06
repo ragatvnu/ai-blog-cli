@@ -57,6 +57,13 @@ Outline only:
 python -m ai_blog outline --topic "best laptops for writers" --out ./out
 ```
 
+Outline mode (no API key):
+
+```bash
+python -m ai_blog outline --topic "best earbuds under 5000 in india" --out ./out --provider mock
+python -m ai_blog outline --topic "best earbuds under 5000 in india" --out ./out --dry-run
+```
+
 Dry run (no API calls, uses bundled sample output):
 
 ```bash

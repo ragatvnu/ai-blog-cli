@@ -16,6 +16,7 @@ from .utils import (
     slugify_topic,
     trim_meta,
     validate_body,
+    validate_outline,
     write_markdown,
 )
 
@@ -335,6 +336,7 @@ def _build_dry_run_outline(
     tone: str,
     audience: str,
     country: str,
+    mode_label: str,
 ) -> ParsedOutput:
     seed_base = f"{topic}|{country}|{tone}|{audience}|outline"
     seed = int(hashlib.sha256(seed_base.encode("utf-8")).hexdigest()[:16], 16)
@@ -342,28 +344,49 @@ def _build_dry_run_outline(
 
     topic_title = _title_case(topic)
     title = f"{topic_title} in {country}: Outline"
-    meta = (
-        f"Outline for {topic} in {country}, covering key sections, checklist, and FAQs."
-    )
+    meta = f"Outline for {topic} in {country}, covering key sections and FAQs."
 
     words_list = _topic_words(topic)
     templates = [
         "Overview: {topic}",
-        "{word} priorities for {audience}",
+        "{word} priorities for {audience} in {country}",
         "Budget and value factors in {country}",
-        "Common mistakes to avoid",
-        "How to compare options",
-        "Final decision checklist",
+        "Comfort and daily use considerations",
+        "Performance and reliability checks",
+        "How to compare shortlists",
+        "Mistakes to avoid when buying",
+        "Decision checklist for {topic}",
+        "Where to buy and support in {country}",
+        "Future-proofing and long-term value",
     ]
     rnd.shuffle(templates)
     headings = []
-    for i in range(5):
+    total_sections = 8 + (seed % 2)
+    for i in range(total_sections):
         word = words_list[i % len(words_list)]
         headings.append(
-            templates[i].format(
+            templates[i % len(templates)].format(
                 topic=topic, word=word, audience=audience, country=country
             )
         )
+
+    bullet_templates = [
+        "Define your budget and must-have features for {topic}.",
+        "Shortlist 2-3 options with solid reviews in {country}.",
+        "Compare real-world performance, not just specs.",
+        "Prioritize comfort and daily usability for {audience}.",
+        "Check warranty and service coverage in {country}.",
+        "Avoid features you won't use to keep value high.",
+    ]
+
+    def bullets() -> list[str]:
+        options = bullet_templates[:]
+        rnd.shuffle(options)
+        count = 3 + rnd.randint(0, 3)
+        return [
+            options[i].format(topic=topic, audience=audience, country=country)
+            for i in range(count)
+        ]
 
     faq_questions = [
         f"What should I look for when choosing {topic} in {country}?",
@@ -371,14 +394,25 @@ def _build_dry_run_outline(
         f"Which {topic} features matter most for {audience}?",
         f"Is the cheapest {topic} a good idea?",
         f"How long should {topic} typically last?",
+        f"Where can I get support for {topic} in {country}?",
+        f"What mistakes should I avoid when buying {topic}?",
+        f"How do I balance price and quality for {topic}?",
     ]
+    rnd.shuffle(faq_questions)
+    faq_questions = faq_questions[: 5 + (seed % 4)]
 
-    body_lines = [f"# {title}", ""]
+    body_lines = [
+        f"# {title}",
+        "",
+        f"{mode_label} OUTPUT: Deterministic outline for {topic} in {country}.",
+        "",
+    ]
     for heading in headings:
         body_lines.append(f"## {heading}")
-    body_lines.append("")
+        for bullet in bullets():
+            body_lines.append(f"- {bullet}")
+        body_lines.append("")
     body_lines.append("## FAQs")
-    body_lines.append("")
     for q in faq_questions:
         body_lines.append(f"- {q}")
 
@@ -486,7 +520,7 @@ def generate_article(
         meta_description=meta,
         topic=topic,
         word_count_target=words,
-        dry_run=dry_run,
+        dry_run=True if dry_run else None,
     )
 
     out_path = ensure_out_dir(out_dir) / f"{slug}.md"
@@ -516,7 +550,8 @@ def generate_outline(
         raise ValueError(f"Unknown provider: {provider}")
 
     if dry_run or provider == "mock":
-        parsed = _build_dry_run_outline(topic, tone, audience, country)
+        mode_label = "DRY RUN" if dry_run else "MOCK"
+        parsed = _build_dry_run_outline(topic, tone, audience, country, mode_label)
     else:
         if client is None:
             client = _openai_client()
@@ -535,6 +570,11 @@ def generate_outline(
     meta = trim_meta(parsed.meta_description, 155)
     body = parsed.body
 
+    if provider != "openai" or dry_run:
+        issues = validate_outline(body)
+        if issues:
+            raise MockDryRunRegressionError("Mock/Dry-run generator regression")
+
     slug = slugify_topic(topic) + "-outline"
     frontmatter = build_frontmatter(
         title=parsed.title,
@@ -542,6 +582,8 @@ def generate_outline(
         meta_description=meta,
         topic=topic,
         word_count_target=0,
+        kind="outline",
+        provider=provider,
         dry_run=dry_run,
     )
 
